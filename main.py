@@ -1,3 +1,4 @@
+import machine
 import LineSensor
 import PID
 
