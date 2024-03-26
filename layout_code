@@ -1,0 +1,289 @@
+# main.py -- put your code here!
+
+# link libaries
+from machine import Pin, ADC, UART
+from time import sleep
+from hcsr04 import HCSR04
+
+### PINS ###
+# variables for pin numbers
+# light sensor
+LSP1 = 0
+LSP2 = 0
+LSP3 = 0
+LSP4 = 0
+LSP5 = 0
+
+#gyro
+G1 = 0
+
+#color sensor
+CS1 = 0
+
+#infrared
+IRP1 = 0
+IRP2 = 0
+
+# ultrasonic
+US_TRIG = 0
+US_ECHO = 0
+
+# magnet
+M1 = 0
+
+#storing pin values in variables
+#line sensor
+LS1 = ADC(Pin(LSP1))
+LS1.atten(ADC.ATTN_11DB)
+LS2 = ADC(Pin(LSP2))
+LS2.atten(ADC.ATTN_11DB)
+LS3 = ADC(Pin(LSP3))
+LS3.atten(ADC.ATTN_11DB)
+LS4 = ADC(Pin(LSP4))
+LS4.atten(ADC.ATTN_11DB)
+LS5 = ADC(Pin(LSP5))
+LS5.atten(ADC.ATTN_11DB)
+
+# gyroscope
+
+
+# color sensor
+
+
+# infrareds
+IR1 = ADC(Pin(IRP1))
+IR1.atten(ADC.ATTN_11DB)
+
+IR2 = ADC(Pin(IRP2))
+IR2.atten(ADC.ATTN_11DB)
+
+# ultrasound
+US1 = HCSR04(trigger_pin=US_TRIG, echo_pin=US_ECHO, echo_timeout_us=10000)
+
+# magnet
+
+
+# screen
+
+### VARIABLES ###
+# current box; none, red, green, blue, black
+box_color = "none"
+
+# states
+
+# [motor control]
+
+
+### MAIN LOOP ###
+
+# read all sensors
+# display current state on screen
+            
+# switch states
+#     forward
+#         if line skewed left/right
+#         if no line 90° left/right; left or right dependent on gyroscope position
+#         if ultrasonic obstacle scan
+
+#     left
+#         if timer 0 forward
+     
+#     right 
+#         if timer 0 forward
+
+#     90° left
+#         if longer timer 0 forward
+    
+#     90° right
+#         if longer timer 0 forward
+
+#     180°
+#         if longest timer 0 forward
+
+#     scan
+#         if color & no box pick up
+#         if color & box drop off
+#         if obstacle turn 180°
+
+#     pick up
+#         if magnet on 180°
+
+#     drop off
+#         if magnet off 180°
+
+# states effects
+
+#     forward
+#         steady speed both motors same direction
+    
+#     left
+#         steady speed both motors slight left; 2 second timer (up for tweaking)
+
+#     right
+#         steady speed both motors slight right; 2 second timer
+        
+#     90° left
+#         both motors strong left; ? second timer (however long it takes to do a full 90°, has to be measured)
+        
+#     90° right
+#         both motors strong right; ? second timer
+
+#     180° 
+#         same as 90° but twice as long
+    
+#     scan
+#         use color sensor to check if box/nook or obstacle; gyroscope position assists this
+#         check if box is carried right now
+#         if looking at nook, compare color to current color of box
+
+#     pick up 
+#         turn on magnet
+#         save current color
+
+#     drop off
+#         turn off magnet
+#         clear current color
+        
+
+# (states
+    
+#     line follow forward
+#         if line straight in front just move forward; default state
+
+#     line follow slight left
+#     line follow slight right
+#         adjust robot slightly if line ahead not straight; starts line sensors, ends timer based
+
+#     line follow 90° left
+#     line follow 90° right
+#         full turns if no line ahead; use line + gyroscope, ends timer
+
+#     scan obstacle  
+#         if obstacle within reach use color sensor/position to see if it's box/nook
+    
+#     pick up box
+#         activate magnet to pick up box; check if box is picked up?
+    
+#     drop off box
+#         turn off magnet to drop box in nook
+
+#     turn 180° degrees
+#         after box picked up/dropped/obstacle detected turn around
+    
+#     could split up more to optimize movement to go directly to boxes/nooks vs just following line/seeking?)
+
+
+"""
+link libaries
+
+set up pins & variables etc
+    line sensor
+    gyroscope
+    color sensor
+    infrareds
+    ultrasound
+
+    magnet
+    current box
+
+    states
+
+    [motor control]
+
+(states
+    
+    line follow forward
+        if line straight in front just move forward; default state
+
+    line follow slight left
+    line follow slight right
+        adjust robot slightly if line ahead not straight; starts line sensors, ends timer based
+
+    line follow 90° left
+    line follow 90° right
+        full turns if no line ahead; use line + gyroscope, ends timer
+
+    scan obstacle  
+        if obstacle within reach use color sensor/position to see if it's box/nook
+    
+    pick up box
+        activate magnet to pick up box; check if box is picked up?
+    
+    drop off box
+        turn off magnet to drop box in nook
+
+    turn 180° degrees
+        after box picked up/dropped/obstacle detected turn around
+    
+    could split up more to optimize movement to go directly to boxes/nooks vs just following line/seeking?)
+
+MAIN LOOP
+
+read all sensors
+            
+switch states
+    forward
+        if line skewed left/right
+        if no line 90° left/right; left or right dependent on gyroscope position
+        if ultrasonic obstacle scan
+
+    left
+        if timer 0 forward
+     
+    right 
+        if timer 0 forward
+
+    90° left
+        if longer timer 0 forward
+    
+    90° right
+        if longer timer 0 forward
+
+    180°
+        if longest timer 0 forward
+
+    scan
+        if color & no box pick up
+        if color & box drop off
+        if obstacle turn 180°
+
+    pick up
+        if magnet on 180°
+
+    drop off
+        if magnet off 180°
+
+states effects
+
+    forward
+        steady speed both motors same direction
+    
+    left
+        steady speed both motors slight left; 2 second timer (up for tweaking)
+
+    right
+        steady speed both motors slight right; 2 second timer
+        
+    90° left
+        both motors strong left; ? second timer (however long it takes to do a full 90°, has to be measured)
+        
+    90° right
+        both motors strong right; ? second timer
+
+    180° 
+        same as 90° but twice as long
+    
+    scan
+        use color sensor to check if box/nook or obstacle; gyroscope position assists this
+        check if box is carried right now
+        if looking at nook, compare color to current color of box
+
+    pick up 
+        turn on magnet
+        save current color
+
+    drop off
+        turn off magnet
+        clear current color
+        
+"""
