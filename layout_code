@@ -119,7 +119,8 @@ IR2.atten(ADC.ATTN_11DB)
 US1 = HCSR04(trigger_pin=US_TRIG, echo_pin=US_ECHO, echo_timeout_us=10000)
 
 # magnet -----------------------------------------------------------------
-
+M1 = Pin(MP1, Pin.OUT)
+M1.off()
 
 # screen -----------------------------------------------------------------
 
@@ -247,12 +248,14 @@ match states:
 #         turn on magnet
 #         save current color
   case "pick_up":
+    M1.on()
+    
 
 #     drop off
 #         turn off magnet
 #         clear current color
   case "drop_off":
-        
+    M1.off()
 
 # (states
     
