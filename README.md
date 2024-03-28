@@ -1,6 +1,7 @@
 # Robotics
 This repo is for the robotics project of semester 3 - Electrical and Electronics Engineering
 
+```
 ------------------------------------------------------------------------------
              __    __       ___      .__   __.  ________   _______ 
             |  |  |  |     /   \     |  \ |  | |       /  |   ____|
@@ -30,3 +31,4 @@ This repo is for the robotics project of semester 3 - Electrical and Electronics
 |  |    /  _____  \ |  `----.    |  |     |  `--'  | |  |\  \----.   |  |     
 |__|   /__/     \__\ \______|    |__|      \______/  | _| `._____|   |__|     
 ------------------------------------------------------------------------------
+```
