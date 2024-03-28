@@ -133,8 +133,41 @@ US1 = HCSR04(trigger_pin=US_TRIG, echo_pin=US_ECHO, echo_timeout_us=10000)
 box_color = "none"
 
 # states
+states = "forward"
+
+# pid
+delta_t = 0.1
+kp = 0.5
+ki = 0.01
+kd = 0.1
+
+desired_line_value = 2000
+
+prev_error = 0
+accu_error = 0
 
 # [motor control]
+
+############################################################## FUNCTIONS #
+
+# line error
+def get_line_error(desired_line_value, total_line_value):
+    line_error = desired_line_value - total_line_value
+    return line_error
+
+# pid controller
+def pid_controller(error, prev_error, accu_error, delta_t, kp, kd, ki):
+    P = kp * error                      # Proportional term; kp is the proportional gain
+    I = accu_error + ki * error * delta_t    # Intergral term; ki is the integral gain
+    D = kd * (error - prev_error)/delta_t   # Derivative term; kd is the derivative gain
+    
+    output = P + I + D              # controller output
+    
+    # store values for the next iteration
+    prev_error = error     # error value in the previous interation (to calculate the derivative term)
+    accu_error = I      # accumulated error value (to calculate the integral term)
+    
+    return output, prev_error, accu_error
 
 #####################################################
 ##   __  __      _        _                       ##
@@ -145,19 +178,21 @@ box_color = "none"
 ############################################################## MAIN LOOP #
 
 # read all sensors
+# line sensor
+LS1V = LS1.read()
+LS2V = LS2.read()
+LS3V = LS3.read()
+LS4V = LS4.read()
+LS5V = LS5.read()
+
+total_line_value = (0*LS1V + 1000*LS2V + 2000*LS3V + 3000*LS4V + 4000*LS5V) / (LS1V+LS2V+LS3V+LS4V+LS5V)
+
 # display current state on screen
             
 # switch states
 #     forward
-#         if line skewed left/right
 #         if no line 90° left/right; left or right dependent on gyroscope position
 #         if ultrasonic obstacle scan
-
-#     left
-#         if timer 0 forward
-     
-#     right 
-#         if timer 0 forward
 
 #     90° left
 #         if longer timer 0 forward
@@ -180,37 +215,43 @@ box_color = "none"
 #         if magnet off 180°
 
 # states effects
+match states:
 
 #     forward
-#         steady speed both motors same direction
-    
-#     left
-#         steady speed both motors slight left; 2 second timer (up for tweaking)
+#         pid 
 
-#     right
-#         steady speed both motors slight right; 2 second timer
+  case "forward":
+    current_line_error = get_line_error(desired_line_value, total_line_value)
+    line_pid_output, prev_error, accu_error = pid_controller(current_line_error, prev_error, accu_error, delta_t, kp, kd, ki)
+    # convert line_pid_output into actual motor control 
         
 #     90° left
 #         both motors strong left; ? second timer (however long it takes to do a full 90°, has to be measured)
+  case "left":
         
 #     90° right
 #         both motors strong right; ? second timer
+  case "right":
 
 #     180° 
 #         same as 90° but twice as long
+  case "turn_around":
     
 #     scan
 #         use color sensor to check if box/nook or obstacle; gyroscope position assists this
 #         check if box is carried right now
 #         if looking at nook, compare color to current color of box
+  case "scan":
 
 #     pick up 
 #         turn on magnet
 #         save current color
+  case "pick_up":
 
 #     drop off
 #         turn off magnet
 #         clear current color
+  case "drop_off":
         
 
 # (states
