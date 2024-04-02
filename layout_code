@@ -73,7 +73,11 @@ LSP5 = 0
 G1 = 0
 
 # color sensor ------------------------------------------------------------
-CS1 = 0
+CSP0 = 0
+CSP1 = 0
+CSP2 = 0
+CSP3 = 0
+CSPOUT = 0
 
 # infrared ----------------------------------------------------------------
 IRP1 = 0
@@ -126,8 +130,26 @@ LS5.atten(ADC.ATTN_11DB)
 
 
 # color sensor -----------------------------------------------------------
+CS0 = Pin(CSP0, Pin.OUT)
+CS1 = Pin(CSP1, Pin.OUT)
+CS2 = Pin(CSP2, Pin.OUT)
+CS3 = Pin(CSP3, Pin.OUT)
+CSOUT = Pin(CSPOUT, Pin.IN)
+
+# upper and lower limits for color values | calibration
+redLow = 75
+redHigh = 100
+greenLow = 150
+greenHigh = 225
+blueLow = 140
+blueHigh = 170
+
+# Setting frequency scaling to 20%
+CS0.value(1)
+CS1.value(0)
+
 # current box; none, red, green, blue, black
-box_color = "none"
+currentColor = "none"
 
 # infrareds --------------------------------------------------------------
 IR1 = ADC(Pin(IRP1))
@@ -243,6 +265,35 @@ def pid_controller(error, prev_error, accu_error, delta_t, kp, kd, ki):
     
     return output, prev_error, accu_error
 
+# color sensor
+def scan_colors()
+    #Setting RED (R) filtered photodiodes to be read
+    CS2.value(0)
+    CS3.value(0)
+    
+    #Reading the output frequency
+    redFrequency = time_pulse_us(CSOUT, 0)
+    #Remaping the value of the RED (R) frequency from 0 to 255
+    redColor = scale_value(redFrequency, redLow, redHigh, 255,0);
+    
+    #Setting GREEN filtered photodiodes to be read
+    CS2.value(1)
+    CS3.value(1)
+    
+    #Reading the output frequency
+    greenFrequency = time_pulse_us(CSOUT, 0)
+    #Remaping the value of the GREEN frequency from 0 to 255
+    greenColor = scale_value(greenFrequency, greenLow, greenHigh, 255,0)
+    
+    #Setting BLUE filtered photodiodes to be read
+    CS2.value(0)
+    CS3.value(1)
+    
+    #Reading the output frequency
+    blueFrequency = time_pulse_us(CSOUT, 0)
+    #Remaping the value of the BLUE frequency from 0 to 255
+    blueColor = scale_value(blueFrequency, blueLow, blueHigh, 255,0)
+
 #################
 # Drive System #
 ##########################################################################
@@ -272,6 +323,8 @@ LS4V = LS4.read()
 LS5V = LS5.read()
 
 total_line_value = (0*LS1V + 1000*LS2V + 2000*LS3V + 3000*LS4V + 4000*LS5V) / (LS1V+LS2V+LS3V+LS4V+LS5V)
+
+
 
 # display current state on screen
             
@@ -327,7 +380,17 @@ match states:
 #         use color sensor to check if box/nook or obstacle; gyroscope position assists this
 #         check if box is carried right now
 #         if looking at nook, compare color to current color of box
+  
   case "scan":
+    scan_colors() 
+    if redColor > greenColor and redColor > blueColor:
+        currentColor = "red"
+    
+    if greenColor > redColor and greenColor > blueColor:
+        currentColor = "green"
+    
+    if blueColor > redColor and blueColor > greenColor:
+        currentColor = "blue"
 
 #     pick up 
 #         turn on magnet
