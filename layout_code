@@ -266,6 +266,9 @@ def pid_controller(error, prev_error, accu_error, delta_t, kp, kd, ki):
     return output, prev_error, accu_error
 
 # color sensor
+def scale_value(unscaled, from_min, from_max, to_min, to_max):
+    return (to_max-to_min)*(unscaled-from_min)/(from_max-from_min)+to_min
+
 def scan_colors()
     #Setting RED (R) filtered photodiodes to be read
     CS2.value(0)
