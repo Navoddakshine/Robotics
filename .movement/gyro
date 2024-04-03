@@ -1,0 +1,19 @@
+# main.py -- put your code here!
+
+from machine import SoftI2C, Pin
+from time import sleep
+import mpu6050 
+
+i2c = SoftI2C(scl=Pin(22), sda=Pin(21))     #initializing the I2C method for ESP32
+sensitivity = 131
+
+while True:
+    mpu= mpu6050.accel(i2c)
+    gyz = mpu.get_values()["GyZ"]
+    angular_velocity = gyz/sensitivity 
+    gyx = mpu.get_values()["GyX"]
+    x_position = gyx/sensitivity
+    gyy = mpu.get_values()["GyY"]
+    y_position = gyy/sensitivity
+    print(angular_velocity, x_position, y_position)
+    sleep(0.1) 
