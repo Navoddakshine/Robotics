@@ -16,7 +16,7 @@ sensor5.atten(ADC.ATTN_11DB)
 
 delta_t = 0.2
 desired_line_value = 1999.998
-kp = 5
+kp = 1
 ki = 0.01
 kd = 2.5
 
@@ -30,14 +30,14 @@ def get_line_error(desired_line_value, total_line_value):
 
 # pid controller
 def pid_controller(error, prev_error, accu_error, kp, kd, ki):
-    P = kp * error                      # Proportional term; kp is the proportional gain
+    P = kp * error                  # Proportional term; kp is the proportional gain
     I = accu_error + ki * error     # Intergral term; ki is the integral gain
     D = kd * (error - prev_error)   # Derivative term; kd is the derivative gain
     
     output = P + I + D              # controller output
     
     # store values for the next iteration
-    prev_error = error     # error value in the previous interation (to calculate the derivative term)
+    prev_error = error  # error value in the previous interation (to calculate the derivative term)
     accu_error = I      # accumulated error value (to calculate the integral term)
     
     return output, prev_error, accu_error
@@ -69,11 +69,16 @@ while True:
     total_line_value = (0*s1value + 1000*s2value + 2000*s3value + 3000*s4value + 4000*s5value) / (s1value+s2value+s3value+s4value+s5value+0.01)
 
     line_error = get_line_error(desired_line_value, total_line_value)
+    output, prev_error, accu_error = pid_controller(line_error, prev_error, accu_error, kp, kd, ki)
+
+    desired_angle = scale_value(output, -200+accu_error, 200+accu_error, -45, 45)
+
+    """ line_error = get_line_error(desired_line_value, total_line_value)
     #output, prev_error, accu_error = pid_controller(line_error, prev_error, accu_error, kp, kd, ki)
 
-    desired_angle = scale_value(line_error, -325, 325, -45, 45)
+    desired_angle = scale_value(line_error, -325, 325, -45, 45) """
 
     #print(s1value, s2value, s3value, s4value, s5value)
-    print(total_line_value, line_error, desired_angle)
+    print(total_line_value, line_error, output, accu_error, desired_angle)
 
     sleep(0.2) 
