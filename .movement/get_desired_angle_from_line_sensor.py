@@ -28,7 +28,7 @@ def get_line_error(desired_line_value, total_line_value):
     line_error = desired_line_value - total_line_value
     return line_error
 
-# pid controller
+# pid controller currently does NOT use delta_t - if weird errors, try adding that in first
 def pid_controller(error, prev_error, accu_error, kp, kd, ki):
     P = kp * error                  # Proportional term; kp is the proportional gain
     I = accu_error + ki * error     # Intergral term; ki is the integral gain
