@@ -183,7 +183,7 @@ kp = 0.5
 ki = 0.01
 kd = 0.1
 
-desired_line_value = 2000
+desired_line_value = 1999.998
 
 prev_error = 0
 accu_error = 0
@@ -297,6 +297,10 @@ def scan_colors()
     #Remaping the value of the BLUE frequency from 0 to 255
     blueColor = scale_value(blueFrequency, blueLow, blueHigh, 255,0)
 
+# ultrasound
+
+  
+
 #################
 # Drive System #
 ##########################################################################
@@ -325,30 +329,33 @@ LS3V = LS3.read()
 LS4V = LS4.read()
 LS5V = LS5.read()
 
-total_line_value = (0*LS1V + 1000*LS2V + 2000*LS3V + 3000*LS4V + 4000*LS5V) / (LS1V+LS2V+LS3V+LS4V+LS5V)
+total_line_value = (0*LS1V + 1000*LS2V + 2000*LS3V + 3000*LS4V + 4000*LS5V) / (LS1V+LS2V+LS3V+LS4V+LS5V+0.01)
 
+#ultrasound
+US1V = US1.distance_cm()
 
 
 # display current state on screen
             
 # switch states
-#     forward
-#         if no line 90° left/right; left or right dependent on gyroscope position
-#         if ultrasonic obstacle scan
+match states:
 
-#     90° left
-#         if longer timer 0 forward
-    
-#     90° right
-#         if longer timer 0 forward
-
-#     180°
-#         if longest timer 0 forward
+  case "forward":
+    if US1V < 5:          # if obstacle detected go to scan state
+      states = "scan"
 
 #     scan
 #         if color & no box pick up
 #         if color & box drop off
 #         if obstacle turn 180°
+
+  case "scan":
+    if currentColor != "none":
+      if !boxHeld:
+        states = "pick up"
+      else:
+        states = "drop off"
+    
 
 #     pick up
 #         if magnet on 180°
@@ -363,21 +370,17 @@ match states:
 #         pid 
 
   case "forward":
+    # stay on line
     current_line_error = get_line_error(desired_line_value, total_line_value)
-    line_pid_output, prev_error, accu_error = pid_controller(current_line_error, prev_error, accu_error, delta_t, kp, kd, ki)
-    # convert line_pid_output into actual motor control 
-        
-#     90° left
-#         both motors strong left; ? second timer (however long it takes to do a full 90°, has to be measured)
-  case "left":
-        
-#     90° right
-#         both motors strong right; ? second timer
-  case "right":
+    output, prev_error, accu_error = pid_controller(current_line_error, prev_error, accu_error, kp, kd, ki)
+    if output > 200:
+        output = 200
+    if output < -200:
+        output = -200
 
-#     180° 
-#         same as 90° but twice as long
-  case "turn_around":
+    desired_angle = scale_value(output, -200+accu_error, 200+accu_error, -100, 100)
+        
+
     
 #     scan
 #         use color sensor to check if box/nook or obstacle; gyroscope position assists this
