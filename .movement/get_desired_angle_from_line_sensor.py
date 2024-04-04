@@ -70,6 +70,10 @@ while True:
 
     line_error = get_line_error(desired_line_value, total_line_value)
     output, prev_error, accu_error = pid_controller(line_error, prev_error, accu_error, kp, kd, ki)
+    if output > 200:
+        output = 200
+    if output < -200:
+        output = -200
 
     desired_angle = scale_value(output, -200+accu_error, 200+accu_error, -100, 100)
 
