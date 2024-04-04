@@ -1,0 +1,20 @@
+from machine import Pin, ADC, UART
+from time import sleep
+from hcsr04 import HCSR04
+
+
+ir1 = ADC(Pin(25))
+ir1.atten(ADC.ATTN_11DB)
+
+us1 = HCSR04(trigger_pin=27, echo_pin=26, echo_timeout_us=10000)
+
+while True:
+    irvalue = ir1.read()
+
+    print(irvalue)
+
+    usvalue = us1.distance_cm()
+
+    print(usvalue)
+
+    sleep(0.5)
