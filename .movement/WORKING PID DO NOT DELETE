@@ -1,6 +1,6 @@
 # Complete project details at https://RandomNerdTutorials.com/micropython-esp32-esp8266-dc-motor-l298n/
 
-from dcmotorlibrary import DCMotor
+from dcmotor import DCMotor
 from machine import Pin, PWM, ADC
 from time import sleep
 
