@@ -23,6 +23,7 @@ us1 = HCSR04(trigger_pin=16, echo_pin=17, echo_timeout_us=10000)
 
 #setup magnet
 M1 = Pin(13, Pin.OUT)
+magnet_state = "off"
 
 # setup pid
 delta_t = 0.2
@@ -143,10 +144,14 @@ usvalue = us1.distance_cm() # check distance always
             motor_right.stop()
             motor_left.stop()
             M1.on()
+            magnet_state = "on"
             sleep(3)
             M1.off()
+            magnet_state = "off"
 
-    print(states)
+    print(f"robot is {states}")
+    print(f"the magnet is {magnet_state}")
+    print(f"Distance to Obstacle: {usvalue}cm")
             
 
 # motor_right.forward(50)
