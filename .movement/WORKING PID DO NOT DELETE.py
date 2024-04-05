@@ -85,6 +85,15 @@ sleep(3)
 while True:
     usvalue = us1.distance_cm() # check distance always
 
+    # transitions
+    if states == "forwards":
+        if usvalue <= 1:            # transition
+            states = "obstacle"
+
+    elif states == "obstacle":
+        if usvalue > 1:             #transition
+            states = "forwards"
+    
     #effects
     
     if states == "forwards":
