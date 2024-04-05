@@ -3,6 +3,7 @@
 from dcmotor import DCMotor
 from machine import Pin, PWM, ADC
 from time import sleep
+from hcsr04.py import HCSR04
 
 #set up light sensor
 
@@ -17,8 +18,13 @@ sensor4.atten(ADC.ATTN_11DB)
 sensor5 = ADC(Pin(34))
 sensor5.atten(ADC.ATTN_11DB)
 
-# setup pid
+#setup ultrasonic
+us1 = HCSR04(trigger_pin=16, echo_pin=17, echo_timeout_us=10000)
 
+#setup magnet
+M1 = Pin(13, Pin.OUT)
+
+# setup pid
 delta_t = 0.2
 desired_line_value = 1999.998
 kp = 2
@@ -44,6 +50,9 @@ motor_left = DCMotor(pin1, pin2, enable)
 motor_right = DCMotor(pin3, pin4, enable2)
 #Set min duty cycle (350) and max duty cycle (1023)
 #dc_motor = DCMotor(pin1, pin2, enable, 350, 1023)
+
+# setup states
+states = "forwards"
 
 #functions
 
@@ -71,50 +80,74 @@ def scale_value(unscaled, from_min, from_max, to_min, to_max):
     return (to_max-to_min)*(unscaled-from_min)/(from_max-from_min)+to_min
 
 while True:
-    s1value = sensor1.read()
-    s2value = sensor2.read()
-    s3value = sensor3.read()
-    s4value = sensor4.read()
-    s5value = sensor5.read()
+usvalue = us1.distance_cm() # check distance always
 
-    if s1value > 3000:
-        s1value = 3000
-    if s2value > 3000:
-        s2value = 3000
-    if s3value > 3000:
-        s3value = 3000
-    if s4value > 3000:
-        s4value = 3000
-    if s5value > 3000:
-        s5value = 3000
-    if s1value == 3000 and s2value == 3000 and s3value == 3000 and s4value == 3000 and s5value == 3000:
-        motor_right.backwards(10)
-        motor_left.backwards(10)
+    #transitions
+    match states:
+        case "forwards":
+            if usvalue <= 1:
+                states = "obstacle"
 
-    total_line_value = (0*s1value + 1000*s2value + 2000*s3value + 3000*s4value + 4000*s5value) / (s1value+s2value+s3value+s4value+s5value+0.01)
+        case "obstacle":
+            if usvalue => 1:
+                states = "forwards"
 
-    line_error = get_line_error(desired_line_value, total_line_value)
-    output, prev_error, accu_error = pid_controller(line_error, prev_error, accu_error, kp, kd, ki)
-    if output > 200:
-        output = 200
-    if output < -200:
-        output = -200
+    #effects
+    match states: 
+        case "forwards":
+            
+            s1value = sensor1.read()
+            s2value = sensor2.read()
+            s3value = sensor3.read()
+            s4value = sensor4.read()
+            s5value = sensor5.read()
+        
+            if s1value > 3000:
+                s1value = 3000
+            if s2value > 3000:
+                s2value = 3000
+            if s3value > 3000:
+                s3value = 3000
+            if s4value > 3000:
+                s4value = 3000
+            if s5value > 3000:
+                s5value = 3000
+            if s1value == 3000 and s2value == 3000 and s3value == 3000 and s4value == 3000 and s5value == 3000:
+                motor_right.backwards(10)
+                motor_left.backwards(10)
+        
+            total_line_value = (0*s1value + 1000*s2value + 2000*s3value + 3000*s4value + 4000*s5value) / (s1value+s2value+s3value+s4value+s5value+0.01)
+        
+            line_error = get_line_error(desired_line_value, total_line_value)
+            output, prev_error, accu_error = pid_controller(line_error, prev_error, accu_error, kp, kd, ki)
+            if output > 200:
+                output = 200
+            if output < -200:
+                output = -200
+        
+            speed_variable = scale_value(output, -200+accu_error, 200+accu_error, -10, 10)
+        
+            """ line_error = get_line_error(desired_line_value, total_line_value)
+            #output, prev_error, accu_error = pid_controller(line_error, prev_error, accu_error, kp, kd, ki)
+        
+            desired_angle = scale_value(line_error, -325, 325, -45, 45) """
+        
+            #print(s1value, s2value, s3value, s4value, s5value)
+            print(total_line_value, line_error, output, accu_error, speed_variable)
+            
+            motor_right.forward(5-speed_variable)
+            motor_left.forward(5+speed_variable)
+            sleep(0.2)
 
-    speed_variable = scale_value(output, -200+accu_error, 200+accu_error, -10, 10)
+        case "obstacle":
+            motor_right.stop()
+            motor_left.stop()
+            M1.on()
+            sleep(3)
+            M1.off()
 
-    """ line_error = get_line_error(desired_line_value, total_line_value)
-    #output, prev_error, accu_error = pid_controller(line_error, prev_error, accu_error, kp, kd, ki)
-
-    desired_angle = scale_value(line_error, -325, 325, -45, 45) """
-
-    #print(s1value, s2value, s3value, s4value, s5value)
-    print(total_line_value, line_error, output, accu_error, speed_variable)
-    
-    motor_right.forward(5-speed_variable)
-    motor_left.forward(5+speed_variable)
-
-    sleep(0.2) 
-
+    print(states)
+            
 
 # motor_right.forward(50)
 # motor_left.forward(50)
