@@ -1,26 +1,19 @@
-# main.py
+# main.py -- put your code here!
 
 from machine import Pin
 import time
 
 #CHANGE PINS
-ELECTROMAGNET_PIN = 0
-LED_PIN = 13
-
-electromagnet = Pin(ELECTROMAGNET_PIN, Pin.OUT)
-led = Pin(LED_PIN, Pin.OUT)
-
-def setup():
-    print("Electromagnet setup complete")
-setup()
+MP1 = 18
+M1 = Pin(MP1, Pin.OUT)
 
 while True:
     # Turn on electromagnet and LED
-    electromagnet.on()
-    led.on()
+    M1.on()
+    print("on")
     time.sleep(1)
 
     # Turn off electromagnet and LED
-    electromagnet.off()
-    led.off()
+    M1.off()
+    print("off")
     time.sleep(1)
