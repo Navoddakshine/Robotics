@@ -1,9 +1,9 @@
 # Complete project details at https://RandomNerdTutorials.com/micropython-esp32-esp8266-dc-motor-l298n/
 
 from dcmotor import DCMotor
+from hcsr04 import HCSR04
 from machine import Pin, PWM, ADC
 from time import sleep
-from hcsr04.py import HCSR04
 
 #set up light sensor
 
@@ -80,74 +80,73 @@ def pid_controller(error, prev_error, accu_error, kp, kd, ki):
 def scale_value(unscaled, from_min, from_max, to_min, to_max):
     return (to_max-to_min)*(unscaled-from_min)/(from_max-from_min)+to_min
 
+sleep(3)
+
 while True:
-usvalue = us1.distance_cm() # check distance always
-
-    #transitions
-    match states:
-        case "forwards":
-            if usvalue <= 1:
-                states = "obstacle"
-
-        case "obstacle":
-            if usvalue => 1:
-                states = "forwards"
+    usvalue = us1.distance_cm() # check distance always
 
     #effects
-    match states: 
-        case "forwards":
-            
-            s1value = sensor1.read()
-            s2value = sensor2.read()
-            s3value = sensor3.read()
-            s4value = sensor4.read()
-            s5value = sensor5.read()
+    
+    if states == "forwards":
+        if usvalue <= 1:            # transition
+            states = "obstacle"
         
-            if s1value > 3000:
-                s1value = 3000
-            if s2value > 3000:
-                s2value = 3000
-            if s3value > 3000:
-                s3value = 3000
-            if s4value > 3000:
-                s4value = 3000
-            if s5value > 3000:
-                s5value = 3000
-            if s1value == 3000 and s2value == 3000 and s3value == 3000 and s4value == 3000 and s5value == 3000:
-                motor_right.backwards(10)
-                motor_left.backwards(10)
+        s1value = sensor1.read()
+        s2value = sensor2.read()
+        s3value = sensor3.read()
+        s4value = sensor4.read()
+        s5value = sensor5.read()
+    
+        if s1value > 3000:
+            s1value = 3000
+        if s2value > 3000:
+            s2value = 3000
+        if s3value > 3000:
+            s3value = 3000
+        if s4value > 3000:
+            s4value = 3000
+        if s5value > 3000:
+            s5value = 3000
+        if s1value == 3000 and s2value == 3000 and s3value == 3000 and s4value == 3000 and s5value == 3000:
+            motor_right.backwards(10)
+            motor_left.backwards(10)
+    
+        total_line_value = (0*s1value + 1000*s2value + 2000*s3value + 3000*s4value + 4000*s5value) / (s1value+s2value+s3value+s4value+s5value+0.01)
+    
+        line_error = get_line_error(desired_line_value, total_line_value)
+        output, prev_error, accu_error = pid_controller(line_error, prev_error, accu_error, kp, kd, ki)
+        if output > 200:
+            output = 200
+        if output < -200:
+            output = -200
+    
+        speed_variable = scale_value(output, -200+accu_error, 200+accu_error, -10, 10)
+    
+        """ line_error = get_line_error(desired_line_value, total_line_value)
+        #output, prev_error, accu_error = pid_controller(line_error, prev_error, accu_error, kp, kd, ki)
+    
+        desired_angle = scale_value(line_error, -325, 325, -45, 45) """
+    
+        #print(s1value, s2value, s3value, s4value, s5value)
+        print(total_line_value, line_error, output, accu_error, speed_variable)
         
-            total_line_value = (0*s1value + 1000*s2value + 2000*s3value + 3000*s4value + 4000*s5value) / (s1value+s2value+s3value+s4value+s5value+0.01)
-        
-            line_error = get_line_error(desired_line_value, total_line_value)
-            output, prev_error, accu_error = pid_controller(line_error, prev_error, accu_error, kp, kd, ki)
-            if output > 200:
-                output = 200
-            if output < -200:
-                output = -200
-        
-            speed_variable = scale_value(output, -200+accu_error, 200+accu_error, -10, 10)
-        
-            """ line_error = get_line_error(desired_line_value, total_line_value)
-            #output, prev_error, accu_error = pid_controller(line_error, prev_error, accu_error, kp, kd, ki)
-        
-            desired_angle = scale_value(line_error, -325, 325, -45, 45) """
-        
-            #print(s1value, s2value, s3value, s4value, s5value)
-            print(total_line_value, line_error, output, accu_error, speed_variable)
-            
-            motor_right.forward(5-speed_variable)
-            motor_left.forward(5+speed_variable)
-            sleep(0.2)
+        motor_right.forward(5-speed_variable)
+        motor_left.forward(5+speed_variable)
+        sleep(0.2)
 
-        case "obstacle":
-            motor_right.stop()
-            motor_left.stop()
-            M1.on()
-            magnet_state = "on"
-            sleep(3)
-            M1.off()
-            magnet_state = "off"
+    elif states == "obstacle":
+    
+        if usvalue > 1:             #transition
+            states = "forwards"
+
+        motor_right.stop()
+        motor_left.stop()
+        M1.on()
+        magnet_state = "on"
+        print(f"the magnet is {magnet_state}")
+        sleep(3)
+        M1.off()
+        magnet_state = "off"
 
     print(f"robot is {states}")
     print(f"the magnet is {magnet_state}")
@@ -231,4 +230,3 @@ usvalue = us1.distance_cm() # check distance always
 # #     dutyCycle = 200
 #     stop_motors()
 #     time.sleep(5)
-
