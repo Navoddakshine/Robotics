@@ -1,0 +1,141 @@
+# main.py -- put your code here!
+
+# Complete project details at https://RandomNerdTutorials.com/micropython-esp32-esp8266-dc-motor-l298n/
+
+from dcmotor import DCMotor
+from machine import Pin, PWM, ADC
+from time import sleep
+
+go = False
+
+#set up light sensor
+
+sensor1 = ADC(Pin(25))
+sensor1.atten(ADC.ATTN_11DB)
+sensor2 = ADC(Pin(2))
+sensor2.atten(ADC.ATTN_11DB)
+sensor3 = ADC(Pin(27))
+sensor3.atten(ADC.ATTN_11DB)
+sensor4 = ADC(Pin(34))
+sensor4.atten(ADC.ATTN_11DB)
+sensor5 = ADC(Pin(35))
+sensor5.atten(ADC.ATTN_11DB)
+
+max_line = 3000
+
+# setup pid
+
+delta_t = 0.2
+desired_line_value = 2055.998
+kp = 2
+ki = 0
+kd = 0.1
+
+prev_error = 0
+accu_error = 0
+
+# setup motors
+
+frequency = 15000
+
+pin1 = Pin(19, Pin.OUT)
+pin2 = Pin(18, Pin.OUT)
+enable = PWM(Pin(14), frequency)
+
+pin3 = Pin(5, Pin.OUT)
+pin4 = Pin(21, Pin.OUT)
+enable2 = PWM(Pin(26), frequency)
+
+motor_left = DCMotor(pin1, pin2, enable, 500, 1023)
+motor_right = DCMotor(pin3, pin4, enable2, 500, 1023)
+#Set min duty cycle (350) and max duty cycle (1023)
+#dc_motor = DCMotor(pin1, pin2, enable, 350, 1023)
+
+#functions
+
+# line error
+def get_line_error(desired_line_value, total_line_value):
+    line_error = desired_line_value - total_line_value
+    return line_error
+
+# pid controller currently does NOT use delta_t 
+def pid_controller(error, prev_error, accu_error, kp, kd, ki):
+    P = kp * error                  # Proportional term; kp is the proportional gain
+    I = accu_error + ki * error     # Intergral term; ki is the integral gain
+    D = kd * (error - prev_error)   # Derivative term; kd is the derivative gain
+    
+    output = P + I + D              # controller output
+    
+    # store values for the next iteration
+    prev_error = error  # error value in the previous interation (to calculate the derivative term)
+    accu_error = I      # accumulated error value (to calculate the integral term)
+    
+    return output, prev_error, accu_error
+
+# remap values
+def scale_value(unscaled, from_min, from_max, to_min, to_max):
+    return (to_max-to_min)*(unscaled-from_min)/(from_max-from_min)+to_min
+
+while True:
+    if go == False:
+        sleep(3)
+        go = True
+        
+    if go:
+        s1value = sensor1.read()
+        s2value = sensor2.read()
+        s3value = sensor3.read()
+        s4value = sensor4.read()
+        s5value = sensor5.read()
+
+        print(s1value, s2value, s3value, s4value, s5value)
+
+        if s1value > max_line:
+            s1value = max_line
+        if s2value > max_line:
+            s2value = max_line
+        if s3value > max_line:
+            s3value = max_line
+        if s4value > max_line:
+            s4value = max_line
+        if s5value > max_line:
+            s5value = max_line
+        if s1value == max_line and s2value == max_line and s3value == max_line and s4value == max_line and s5value == max_line:
+            motor_right.backwards(20)
+            motor_left.backwards(20)
+
+        total_line_value = (0*s1value + 1000*s2value + 2000*s3value + 3000*s4value + 4000*s5value) / (s1value+s2value+s3value+s4value+s5value+0.01)
+
+        print(total_line_value)
+
+        line_error = get_line_error(desired_line_value, total_line_value)
+        output, prev_error, accu_error = pid_controller(line_error, prev_error, accu_error, kp, kd, ki)
+        if output > 200:
+            output = 200
+        if output < -200:
+            output = -200
+
+        speed_variable = scale_value(output, -200+accu_error, 200+accu_error, -20, 15)
+
+        """ line_error = get_line_error(desired_line_value, total_line_value)
+        #output, prev_error, accu_error = pid_controller(line_error, prev_error, accu_error, kp, kd, ki)
+
+        desired_angle = scale_value(line_error, -325, 325, -45, 45) """
+
+        #print(s1value, s2value, s3value, s4value, s5value)
+        #print(total_line_value, line_error, output, accu_error, speed_variable)
+        
+        """pin1(1)
+        pin2(0)
+        pin3(1)
+        pin4(0)
+
+        enable(30)
+        enable2(30)"""
+
+        motor_right.forward(20+speed_variable)
+        motor_left.forward(20-speed_variable)
+
+        sleep(0.01)
+
+# this works only left turns
