@@ -1,15 +1,15 @@
 /*
-
-
-
 https://techtutorialsx.com/2018/03/09/esp32-arduino-getting-the-bluetooth-device-address/
 https://github.com/pablomarquez76/PS4_Controller_Host/tree/main/examples
+https://github.com/rodneybakiskan/ps5-esp32
+https://github.com/yesbotics/dualsense-controller-arduino/tree/main
 https://github.com/kimballa/button-debounce/blob/main/examples/buttons/buttons.ino
-
 
 https://github.com/jkb-git/ESP32Servo/blob/master/examples/Multiple-Servo-Example-Arduino/Multiple-Servo-Example-Arduino.ino
 
-MAC-Address: 30:AE:A4:99:FF:36
+
+MAC-Address:  58:10:31:A0:AB:95
+MAC-Address:  34:7d:f6:EA:4A:0B
 
 */
 
@@ -25,14 +25,10 @@ MAC-Address: 30:AE:A4:99:FF:36
 #include <WiFi.h>
 //#include "esp_bt_main.h"
 //#include "esp_bt_device.h"
-#include <PS4Controller.h>
-#include<debounce.h>
+#include <ps5Controller.h>
+#include <debounce.h>
 //#include <analogWrite.h>
 #include <ESP32Servo.h>
-
-#include <Wire.h>
-#include <Adafruit_MPU6050.h>
-#include <Adafruit_Sensor.h>
 
 /*##################################
 ##  ___      _                   ##
@@ -42,17 +38,19 @@ MAC-Address: 30:AE:A4:99:FF:36
 ##                    |___/  ##
 ############################################################ DEBUG MODES */
 #define DEBUG_Servo 0
-#define DEBUG_ARM 0
 
 #define DEBUG_Trim 0
-#define REPORT_ESC 0
-#define REPORT_Offset 0
+
+#define REPORT_ESC 1
+#define REPORT_Offset 1
 
 #define REPORT_Sticks 0
-#define REPORT_triggers 0
+#define REPORT_triggers 1
+
 
 int period = 1000;
 unsigned long time_now = 0;
+
 
 /*##############################
 ##  ___ _        ___ ___     ##
@@ -67,10 +65,11 @@ const int ESC_L_PIN = 17;
 const int ESC_R_PIN = 16;
 
 //const int Servo_PIN [4] = {32, 33, 25, 26}; // x_L, y_L, x_R, y_R
-const int Servo_x_L_PIN = 32;
-const int Servo_y_L_PIN = 33;
-const int Servo_x_R_PIN = 25;
-const int Servo_y_R_PIN = 26;
+const int Servo_x_L_PIN = 33;
+const int Servo_y_L_PIN = 32;
+const int Servo_x_R_PIN = 26;
+const int Servo_y_R_PIN = 25;
+
 
 /*########################################
 ##  ___      _ _    __   __            ##
@@ -94,35 +93,16 @@ int loopCount = 0;
 ## |___|_||_|_|\__| |___/\___|\_/|_\__\___/__/ ##
 #################################################### Initialize Devices */
 
-/*############
-## Sensors ##
-########################################################################*/
-
-// Gyro ------------------------------------------------------------------
-Adafruit_MPU6050 mpu;
-
-/*
-const int MPU = 0x68; // MPU6050 I2C address
-float AccX, AccY, AccZ;
-float GyroX, GyroY, GyroZ;
-float accAngleX, accAngleY, gyroAngleX, gyroAngleY, gyroAngleZ;
-float roll, pitch, yaw;
-float AccErrorX, AccErrorY, GyroErrorX, GyroErrorY, GyroErrorZ;
-float elapsedTime, currentTime, previousTime;
-int c = 0;
-*/
-
-
 /*#################
 ## Drive System ##
 ########################################################################*/
 
 // Gimbals --------------------------------------------------------------
 // hold the L1 and/or R1 button and the D-Pad to adjust the trim for the x and y directions.
-int Gimbal_L_Offset[2] = {-60, 100};  // y, x
-int Gimbal_R_Offset[2] = {60, -100};  // y, x
+int Gimbal_L_Offset[2] = {0, 0};  // y, x
+int Gimbal_R_Offset[2] = {0, 0};  // y, x
 
-int Trim_range[2] = {-500, 500};  // min, max
+int Trim_range[2] = {-200, 200};  // min, max
 
 
 // ESCs ------------------------------------------------------------------
@@ -130,8 +110,8 @@ Servo ESC_L;
 Servo ESC_R;
 
 const int ESC_min = 1000;
-const int ESC_set = 1250;
-const int ESC_max = 1500;
+const int ESC_set = 1500;
+const int ESC_max = 1800;
 
 
 
@@ -145,9 +125,9 @@ Servo servo_y_L;
 Servo servo_x_R;
 Servo servo_y_R;
 
-const int Servo_min = 1000;
+const int Servo_min = 1300;
 const int Servo_mid = 1500;
-const int Servo_max = 2000;
+const int Servo_max = 1700;
 
 int Servo_x_L_output = Servo_mid;
 int Servo_y_L_output = Servo_mid;
@@ -158,7 +138,7 @@ ESP32PWM pwm;
 
 
 /*###################
-## PS4 Controller ##
+## ps5 Controller ##
 ########################################################################*/
 unsigned long debounceDelay = 50;    // debounce time
 // LED -------------------------------------------------------------------
@@ -183,9 +163,6 @@ int L2input = 0;
 int R2input = 0;
 int L2range [2] = {0, 255};
 int R2range [2] = {0, 255};
-
-
-
 
 
 
@@ -228,175 +205,8 @@ void printDeviceAddress() {
 ## | _| || | ' \/ _|  _| / _ \ ' \(_-<  ##
 ## |_| \_,_|_||_\__|\__|_\___/_||_/__/ ##
 ############################################################# Functions */
-
-/*############
-## Sensors ##
-########################################################################*/
-
-// Gyro ------------------------------------------------------------------
-void gyro_setup(){
-  if (!mpu.begin()) {
-    Serial.println("Sensor init failed");
-    while (1)
-      yield();
-  }
-  Serial.println("Found a MPU-6050 sensor");
-  /*
-  Wire.begin();                      // Initialize comunication
-  Wire.beginTransmission(MPU);       // Start communication with MPU6050 // MPU=0x68
-  Wire.write(0x6B);                  // Talk to the register 6B
-  Wire.write(0x00);                  // Make reset - place a 0 into the 6B register
-  Wire.endTransmission(true);        //end the transmission
-  
-  // Configure Accelerometer Sensitivity - Full Scale Range (default +/- 2g)
-  Wire.beginTransmission(MPU);
-  Wire.write(0x1C);                  //Talk to the ACCEL_CONFIG register (1C hex)
-  Wire.write(0x10);                  //Set the register bits as 00010000 (+/- 8g full scale range)
-  Wire.endTransmission(true);
-  // Configure Gyro Sensitivity - Full Scale Range (default +/- 250deg/s)
-  Wire.beginTransmission(MPU);
-  Wire.write(0x1B);                   // Talk to the GYRO_CONFIG register (1B hex)
-  Wire.write(0x10);                   // Set the register bits as 00010000 (1000deg/s full scale)
-  Wire.endTransmission(true);
-  delay(20);
-  
-  // Call this function if you need to get the IMU error values for your module
-  calculate_IMU_error();
-  delay(20);
-  */
-}
-
-void gyro_loop(){
-  sensors_event_t a, g, temp;
-  mpu.getEvent(&a, &g, &temp);
-  Serial.print("Accelerometer ");
-  Serial.print("X: ");
-  Serial.print(a.acceleration.x, 1);
-  Serial.print(" m/s^2, ");
-  Serial.print("Y: ");
-  Serial.print(a.acceleration.y, 1);
-  Serial.print(" m/s^2, ");
-  Serial.print("Z: ");
-  Serial.print(a.acceleration.z, 1);
-  Serial.println(" m/s^2");
-
-  Serial.print("Gyroscope ");
-  Serial.print("X: ");
-  Serial.print(g.gyro.x, 1);
-  Serial.print(" rps, ");
-  Serial.print("Y: ");
-  Serial.print(g.gyro.y, 1);
-  Serial.print(" rps, ");
-  Serial.print("Z: ");
-  Serial.print(g.gyro.z, 1);
-  Serial.println(" rps");
-  delay(period);
-  /*
-  // === Read acceleromter data === //
-  Wire.beginTransmission(MPU);
-  Wire.write(0x3B); // Start with register 0x3B (ACCEL_XOUT_H)
-  Wire.endTransmission(false);
-  Wire.requestFrom(MPU, 6, true); // Read 6 registers total, each axis value is stored in 2 registers
-
-  //For a range of +-2g, we need to divide the raw values by 16384, according to the datasheet
-  AccX = (Wire.read() << 8 | Wire.read()) / 16384.0; // X-axis value
-  AccY = (Wire.read() << 8 | Wire.read()) / 16384.0; // Y-axis value
-  AccZ = (Wire.read() << 8 | Wire.read()) / 16384.0; // Z-axis value
-
-  // Calculating Roll and Pitch from the accelerometer data
-  accAngleX = (atan(AccY / sqrt(pow(AccX, 2) + pow(AccZ, 2))) * 180 / PI) - 0.0; // AccErrorX ~(0.58) See the calculate_IMU_error()custom function for more details
-  accAngleY = (atan(-1 * AccX / sqrt(pow(AccY, 2) + pow(AccZ, 2))) * 180 / PI) + 0.0; // AccErrorY ~(-1.58)
-
-  // === Read gyroscope data === //
-  previousTime = currentTime;        // Previous time is stored before the actual time read
-  currentTime = millis();            // Current time actual time read
-  elapsedTime = (currentTime - previousTime) / 1000; // Divide by 1000 to get seconds
-  Wire.beginTransmission(MPU);
-  Wire.write(0x43); // Gyro data first register address 0x43
-  Wire.endTransmission(false);
-  Wire.requestFrom(MPU, 6, true); // Read 4 registers total, each axis value is stored in 2 registers
-  GyroX = (Wire.read() << 8 | Wire.read()) / 131.0; // For a 250deg/s range we have to divide first the raw value by 131.0, according to the datasheet
-  GyroY = (Wire.read() << 8 | Wire.read()) / 131.0;
-  GyroZ = (Wire.read() << 8 | Wire.read()) / 131.0;
-
-  // Correct the outputs with the calculated error values
-  GyroX = GyroX + 8.24; // GyroErrorX ~(-0.56)
-  GyroY = GyroY - 0.31; // GyroErrorY ~(2)
-  GyroZ = GyroZ + 0.11; // GyroErrorZ ~ (-0.8)
-
-  // Currently the raw values are in degrees per seconds, deg/s, so we need to multiply by sendonds (s) to get the angle in degrees
-  gyroAngleX = gyroAngleX + GyroX * elapsedTime; // deg/s * s = deg
-  gyroAngleY = gyroAngleY + GyroY * elapsedTime;
-  yaw =  yaw + GyroZ * elapsedTime;
-
-  // Complementary filter - combine acceleromter and gyro angle values
-  roll = 0.96 * gyroAngleX + 0.04 * accAngleX;
-  pitch = 0.96 * gyroAngleY + 0.04 * accAngleY;
-  
-  // Print the values on the serial monitor
-  Serial.print(roll);
-  Serial.print("/");
-  Serial.print(pitch);
-  Serial.print("/");
-  Serial.println(yaw);
-  */
-}
-/*
-void calculate_IMU_error() {
-  // We can call this funtion in the setup section to calculate the accelerometer and gyro data error. From here we will get the error values used in the above equations printed on the Serial Monitor.
-  // Note that we should place the IMU flat in order to get the proper values, so that we then can the correct values
-  // Read accelerometer values 200 times
-  while (c < 200) {
-    Wire.beginTransmission(MPU);
-    Wire.write(0x3B);
-    Wire.endTransmission(false);
-    Wire.requestFrom(MPU, 6, true);
-    AccX = (Wire.read() << 8 | Wire.read()) / 16384.0 ;
-    AccY = (Wire.read() << 8 | Wire.read()) / 16384.0 ;
-    AccZ = (Wire.read() << 8 | Wire.read()) / 16384.0 ;
-    // Sum all readings
-    AccErrorX = AccErrorX + ((atan((AccY) / sqrt(pow((AccX), 2) + pow((AccZ), 2))) * 180 / PI));
-    AccErrorY = AccErrorY + ((atan(-1 * (AccX) / sqrt(pow((AccY), 2) + pow((AccZ), 2))) * 180 / PI));
-    c++;
-  }
-  //Divide the sum by 200 to get the error value
-  AccErrorX = AccErrorX / 200;
-  AccErrorY = AccErrorY / 200;
-  c = 0;
-  // Read gyro values 200 times
-  while (c < 200) {
-    Wire.beginTransmission(MPU);
-    Wire.write(0x43);
-    Wire.endTransmission(false);
-    Wire.requestFrom(MPU, 6, true);
-    GyroX = Wire.read() << 8 | Wire.read();
-    GyroY = Wire.read() << 8 | Wire.read();
-    GyroZ = Wire.read() << 8 | Wire.read();
-    // Sum all readings
-    GyroErrorX = GyroErrorX + (GyroX / 131.0);
-    GyroErrorY = GyroErrorY + (GyroY / 131.0);
-    GyroErrorZ = GyroErrorZ + (GyroZ / 131.0);
-    c++;
-  }
-  //Divide the sum by 200 to get the error value
-  GyroErrorX = GyroErrorX / 200;
-  GyroErrorY = GyroErrorY / 200;
-  GyroErrorZ = GyroErrorZ / 200;
-  // Print the error values on the Serial Monitor
-  Serial.print("AccErrorX: ");
-  Serial.println(AccErrorX);
-  Serial.print("AccErrorY: ");
-  Serial.println(AccErrorY);
-  Serial.print("GyroErrorX: ");
-  Serial.println(GyroErrorX);
-  Serial.print("GyroErrorY: ");
-  Serial.println(GyroErrorY);
-  Serial.print("GyroErrorZ: ");
-  Serial.println(GyroErrorZ);
-}
-*/
 /*###################
-## PS4 Controller ##
+## ps5 Controller ##
 ########################################################################*/
 // Calculates the next value in a rainbow sequence
 void nextRainbowColor() {
@@ -405,65 +215,55 @@ void nextRainbowColor() {
   if (b > 0 && g == 0) { r++; b--; }
 }
 
-
-
 // Buttons
 //https://github.com/kimballa/button-debounce/blob/main/examples/pressAndHold/pressAndHold.ino
 static void ARM_buttonHandler(uint8_t btnId, uint8_t btnState) {
   if (btnState == BTN_PRESSED) {
-    switch(btnId) {
-      case 4:
-        ARMED = true;
-        PS4.setLed(255, 0, 0);
-        PS4.sendToController();
-        break;
-      case 5:
-        ARMED = false;
-        PS4.setLed(0, 255, 0);
-        PS4.sendToController();
-        break;
-    }
-  } else {
-    // btnState == BTN_OPEN.
-    if (DEBUG_ARM) Serial.println("Released button");
+    return; // Do nothing on press-down.
+  }
+  else {
+  // btnState == BTN_OPEN.
+    ARMED = true;
+    ps5.setLed(255, 0, 0);
+    ps5.sendToController();
+    Serial.println("Armed.");
   }
 }
 
 
 static void Trim_buttonHandler(uint8_t btnId, uint8_t btnState) {
-  int us_step = 10;
   if (btnState == BTN_PRESSED) {
     switch(btnId) {
       case 0:
-        if (PS4.L1() && Gimbal_L_Offset[0] < Trim_range[1]) {
-          Gimbal_L_Offset[1] -= us_step;
+        if (ps5.L1() && Gimbal_L_Offset[0] < Trim_range[1]) {
+          Gimbal_L_Offset[0] += 1;
         }
-        if (PS4.R1() && Gimbal_R_Offset[0] < Trim_range[1]) {
-          Gimbal_R_Offset[1] += us_step;
+        if (ps5.R1() && Gimbal_R_Offset[0] < Trim_range[1]) {
+          Gimbal_R_Offset[0] += 1;
         }
         break;
       case 1:
-        if (PS4.L1() && Gimbal_L_Offset[0] > Trim_range[0]) {
-          Gimbal_L_Offset[1] += us_step;
+        if (ps5.L1() && Gimbal_L_Offset[0] > Trim_range[0]) {
+          Gimbal_L_Offset[0] -= 1;
         }
-        if (PS4.R1() && Gimbal_R_Offset[0] > Trim_range[0]) {
-          Gimbal_R_Offset[1] -= us_step;
+        if (ps5.R1() && Gimbal_R_Offset[0] > Trim_range[0]) {
+          Gimbal_R_Offset[0] -= 1;
         }
         break;
       case 2:
-        if (PS4.L1() && Gimbal_L_Offset[1] > Trim_range[0]) {
-          Gimbal_L_Offset[0] += us_step;
+        if (ps5.L1() && Gimbal_L_Offset[1] > Trim_range[0]) {
+          Gimbal_L_Offset[1] -= 1;
         }
-        if (PS4.R1() && Gimbal_R_Offset[1] > Trim_range[0]) {
-          Gimbal_R_Offset[0] += us_step;
+        if (ps5.R1() && Gimbal_R_Offset[1] > Trim_range[0]) {
+          Gimbal_R_Offset[1] -= 1;
         }
         break;
       case 3:
-        if (PS4.L1() && Gimbal_L_Offset[1] < Trim_range[1]) {
-          Gimbal_L_Offset[0] -= us_step;
+        if (ps5.L1() && Gimbal_L_Offset[1] < Trim_range[1]) {
+          Gimbal_L_Offset[1] += 1;
         }
-        if (PS4.R1() && Gimbal_R_Offset[1] < Trim_range[1]) {
-          Gimbal_R_Offset[0] -= us_step;
+        if (ps5.R1() && Gimbal_R_Offset[1] < Trim_range[1]) {
+          Gimbal_R_Offset[1] += 1;
         }
         break;
     }
@@ -480,28 +280,28 @@ static Button DownButton(1, Trim_buttonHandler);
 static Button LeftButton(2, Trim_buttonHandler);
 static Button RightButton(3, Trim_buttonHandler);
 
-static Button L3Button(4, ARM_buttonHandler);
-static Button R3Button(5, ARM_buttonHandler);
+static Button L3_R3_Button(4, ARM_buttonHandler);
 
 static void pollButtons() {
   // update() will call buttonHandler() if PIN transitions to a new state and stays there
   // for multiple reads over 25+ ms.
-  UpButton.update(PS4.Up());
-  DownButton.update(PS4.Down());
-  LeftButton.update(PS4.Left());
-  RightButton.update(PS4.Right());
-  L3Button.update(PS4.L3());
-  R3Button.update(PS4.R3());
+  UpButton.update(ps5.Up());
+  DownButton.update(ps5.Down());
+  LeftButton.update(ps5.Left());
+  RightButton.update(ps5.Right());
+
+  //bool L3_R3_input = ps5.L3() && ps5.R3();
+  //L3_R3_Button.update(L3_R3_input);
 }
 
 static void pollAnalog(){
-  LSXinput = PS4.LStickX();
-  LSYinput = PS4.LStickY();
-  RSXinput = PS4.RStickX();
-  RSYinput = PS4.RStickY();
+  LSXinput = ps5.LStickX();
+  LSYinput = ps5.LStickY();
+  RSXinput = ps5.RStickX();
+  RSYinput = ps5.RStickY();
 
-  L2input = PS4.L2Value();
-  R2input = PS4.R2Value();
+  L2input = ps5.L2Value();
+  R2input = ps5.R2Value();
 }
 
 
@@ -512,24 +312,23 @@ static void pollAnalog(){
 ########################################################################*/
 
 void setSpeed() {
-  if (PS4.R2()) {
-    speed = map(PS4.R2Value(), R2range[0], R2range[1], ESC_min, ESC_max);
+  if (ps5.R2()) {
+    speed = map(ps5.R2Value(), R2range[0], R2range[1], ESC_min, ESC_max);
     speed = constrain(speed, ESC_min, ESC_max);
     if (ESC_output < speed) ESC_output = speed;
   }
-  if (PS4.L2()) {
-    speed = map(PS4.L2Value(), L2range[0], L2range[1], ESC_max, ESC_min);
+  if (ps5.L2()) {
+    speed = map(ps5.L2Value(), L2range[0], L2range[1], ESC_max, ESC_min);
     speed = constrain(speed, ESC_min, ESC_max);
     if (ESC_output > speed) ESC_output = speed;
   }
-
   ESC_L.write(ESC_output);
   ESC_R.write(ESC_output);
 }
 
 
 void setServo_us(int id, int us) {
-  us = constrain(us, 1000, 2000);
+  us = constrain(us, Servo_min, Servo_max);
   switch (id) {
     case 0:
       servo_x_L.write(us);
@@ -550,22 +349,16 @@ void setVector() {
 
   v_x = RSXinput;
   v_y = RSYinput;
-  omega = map(LSXinput, LSXrange[0], LSXrange[1], -500, 500);
 
-  Servo_x_L_output = map(v_x * 0.5 , RSXrange[0], RSXrange[1], Servo_min, Servo_max);
-  Servo_y_L_output = map(-v_y * 1, RSYrange[0], RSYrange[1], Servo_min, Servo_max);
-  Servo_x_R_output = map(v_x * 0.5, RSXrange[0], RSXrange[1], Servo_min, Servo_max);
-  Servo_y_R_output = map(v_y * 1, RSYrange[0], RSYrange[1], Servo_min, Servo_max);
+  Servo_x_L_output = map(v_x, RSXrange[0], RSXrange[1], Servo_min, Servo_max);
+  Servo_y_L_output = map(-v_y, RSYrange[0], RSYrange[1], Servo_min, Servo_max);
+  Servo_x_R_output = map(v_x, RSXrange[0], RSXrange[1], Servo_min, Servo_max);
+  Servo_y_R_output = map(v_y, RSYrange[0], RSYrange[1], Servo_min, Servo_max);
 
   setServo_us(0, Servo_x_L_output + Gimbal_L_Offset[1]);
   setServo_us(1, Servo_y_L_output + Gimbal_L_Offset[0]);
   setServo_us(2, Servo_x_R_output + Gimbal_R_Offset[1]);
   setServo_us(3, Servo_y_R_output + Gimbal_R_Offset[0]);
-
-  if (ARMED) {
-    ESC_L.write(ESC_output + omega);
-    ESC_R.write(ESC_output - omega);
-  }
 
 }
 
@@ -581,18 +374,18 @@ void DEBUG_REPORT(){
     //Serial.println();
     Serial.print("===================== ");
 
-    if (PS4.isConnected()) {
+    if (ps5.isConnected()) {
       Serial.println("Connected!");
       // Active Buttons -----------------------------------------------------
-      if (PS4.L1()) Serial.println("L1 Button");
-      if (PS4.R1()) Serial.println("R1 Button");
-      if (PS4.L3()) Serial.println("L3 Button");
-      if (PS4.R3()) Serial.println("R3 Button");
+      if (ps5.L1()) Serial.println("L1 Button");
+      if (ps5.R1()) Serial.println("R1 Button");
+      if (ps5.L3()) Serial.println("L3 Button");
+      if (ps5.R3()) Serial.println("R3 Button");
 
-      if (PS4.Right()) Serial.println("Right Button");
-      if (PS4.Down()) Serial.println("Down Button");
-      if (PS4.Up()) Serial.println("Up Button");
-      if (PS4.Left()) Serial.println("Left Button");
+      if (ps5.Right()) Serial.println("Right Button");
+      if (ps5.Down()) Serial.println("Down Button");
+      if (ps5.Up()) Serial.println("Up Button");
+      if (ps5.Left()) Serial.println("Left Button");
 
       Serial.println("---------------------");
        // Variables ----------------------------------------------------------
@@ -642,8 +435,8 @@ void DEBUG_REPORT(){
         Serial.println(Servo_y_R_output);
       }
       Serial.println("---------------------");
-      Serial.printf("Battery Level: %d", PS4.Battery());
-      if (PS4.Charging()) Serial.println(" (Charging)");
+      Serial.printf("Battery Level: %d", ps5.Battery());
+      if (ps5.Charging()) Serial.println(" (Charging)");
       else Serial.println();
     }
     else Serial.println("Connecting...");
@@ -678,7 +471,7 @@ void setup() {
 
   ESC_L.attach(ESC_L_PIN, ESC_min, ESC_max);
   ESC_R.attach(ESC_R_PIN, ESC_min, ESC_max);
-  //L3_R3_Button.setPushDebounceInterval(5000);
+  L3_R3_Button.setPushDebounceInterval(5000);
 
   servo_x_L.attach(Servo_x_L_PIN, Servo_min, Servo_max);
   servo_y_L.attach(Servo_y_L_PIN, Servo_min, Servo_max);
@@ -688,9 +481,7 @@ void setup() {
 
 
   Serial.begin(115200);
-  PS4.begin("c0:38:96:b3:c5:c5");
-
-  gyro_setup();
+  ps5.begin("58:10:31:A0:AB:95");
 
 
 
@@ -707,25 +498,29 @@ void setup() {
 ## Arduino Loop ##
 ########################################################################*/
 void loop() {
-  //calculate_IMU_error();
-  gyro_loop();
-  if (PS4.isConnected()) {
+  if (ps5.isConnected()) {
     //Emergency Brake
-    if (PS4.Circle()) {
+    if (ps5.Circle()) {
       ESC_output = ESC_min;
       ESC_L.write(ESC_output);
       ESC_R.write(ESC_output);
+      ARMED = false;
+      Serial.println("Disarmed.");
+      ps5.setLed(0, 255, 0);
+      ps5.sendToController();
+      delay (10);
     }
     pollButtons();
-    pollAnalog();
-    setVector();
     switch (ARMED) {
       case true:
         //pollButtons();
+        pollAnalog();
         setSpeed();
-        
+        setVector();
         break;
       case false:
+        bool L3_R3_input = ps5.L3() && ps5.R3();
+        L3_R3_Button.update(L3_R3_input);
         ESC_L.write(ESC_min);
         ESC_R.write(ESC_min);
         break;
