@@ -1,0 +1,71 @@
+# Complete project details at https://RandomNerdTutorials.com/micropython-esp32-esp8266-dc-motor-l298n/
+
+from dcmotor import DCMotor
+from machine import Pin, PWM, ADC
+from time import sleep
+
+#set up light sensor
+
+sensor1 = ADC(Pin(25))
+sensor1.atten(ADC.ATTN_11DB)
+sensor2 = ADC(Pin(33))
+sensor2.atten(ADC.ATTN_11DB)
+sensor3 = ADC(Pin(32))
+sensor3.atten(ADC.ATTN_11DB)
+sensor4 = ADC(Pin(35))
+sensor4.atten(ADC.ATTN_11DB)
+sensor5 = ADC(Pin(34))
+sensor5.atten(ADC.ATTN_11DB)
+
+# setup pid
+
+delta_t = 0.2
+desired_line_value = 1999.998
+kp = 2
+ki = 0
+kd = 0.1
+
+prev_error = 0
+accu_error = 0
+
+# setup motors
+
+frequency = 15000
+
+pin1 = Pin(3, Pin.OUT)
+pin2 = Pin(2, Pin.OUT)
+enable = PWM(Pin(14), frequency)
+
+pin3 = Pin(26, Pin.OUT)
+pin4 = Pin(27, Pin.OUT)
+enable2 = PWM(Pin(12), frequency)
+
+motor_left = DCMotor(pin1, pin2, enable)
+motor_right = DCMotor(pin3, pin4, enable2)
+#Set min duty cycle (350) and max duty cycle (1023)
+#dc_motor = DCMotor(pin1, pin2, enable, 350, 1023)
+
+#functions
+
+# line error
+def get_line_error(desired_line_value, total_line_value):
+    line_error = desired_line_value - total_line_value
+    return line_error
+
+# pid controller currently does NOT use delta_t 
+def pid_controller(error, prev_error, accu_error, kp, kd, ki):
+    P = kp * error                  # Proportional term; kp is the proportional gain
+    I = accu_error + ki * error     # Intergral term; ki is the integral gain
+    D = kd * (error - prev_error)   # Derivative term; kd is the derivative gain
+    
+    output = P + I + D              # controller output
+    
+    # store values for the next iteration
+    prev_error = error  # error value in the previous interation (to calculate the derivative term)
+    accu_error = I      # accumulated error value (to calculate the integral term)
+    
+    return output, prev_error, accu_error
+
+# remap values
+def scale_value(unscaled, from_min, from_max, to_min, to_max):
+    return (to_max-to_min)*(unscaled-from_min)/(from_max-from_min)+to_min
