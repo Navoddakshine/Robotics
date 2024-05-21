@@ -143,3 +143,5 @@ while True:
             motor_left.forward(20-speed_variable)
 
         sleep(0.01)
+
+# forwards works left turns, backwards does not work.
