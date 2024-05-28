@@ -1,0 +1,183 @@
+# Complete project details at https://RandomNerdTutorials.com/micropython-esp32-esp8266-dc-motor-l298n/
+
+from dcmotor import DCMotor
+from hcsr04 import HCSR04
+from machine import Pin, PWM, ADC
+from time import sleep
+
+#set up light sensor
+
+sensor1 = ADC(Pin(15))
+sensor1.atten(ADC.ATTN_11DB)
+sensor2 = ADC(Pin(2))
+sensor2.atten(ADC.ATTN_11DB)
+sensor3 = ADC(Pin(4))
+sensor3.atten(ADC.ATTN_11DB)
+sensor4 = ADC(Pin(34))
+sensor4.atten(ADC.ATTN_11DB)
+sensor5 = ADC(Pin(35))
+sensor5.atten(ADC.ATTN_11DB)
+
+max_line = 3400
+
+#setup ultrasonic
+us1 = HCSR04(trigger_pin=33, echo_pin=25, echo_timeout_us=10000)
+
+#setup magnet
+M1 = Pin(15, Pin.OUT)
+M1.off()
+magnet_state = "off"
+
+# setup pid
+delta_t = 0.2
+desired_line_value = 1999.998
+kp = 2
+ki = 0
+kd = 0.1
+
+prev_error = 0
+accu_error = 0
+
+# setup motors
+
+frequency = 15000
+
+pin1 = Pin(13, Pin.OUT)
+pin2 = Pin(12, Pin.OUT)
+enable = PWM(Pin(32), frequency)
+
+pin3 = Pin(14, Pin.OUT)
+pin4 = Pin(27, Pin.OUT)
+enable2 = PWM(Pin(18), frequency)
+
+motor_left = DCMotor(pin1, pin2, enable, 500, 1023)
+motor_right = DCMotor(pin3, pin4, enable2, 500, 1023)
+#Set min duty cycle (350) and max duty cycle (1023)
+#dc_motor = DCMotor(pin1, pin2, enable, 350, 1023)
+
+# setup states
+states = "forwards"
+
+#functions
+#calculate weighted average line value
+def calculate_line_value():
+    global s1value 
+    s1value = sensor1.read()
+    global s2value
+    s2value = sensor2.read()
+    global s3value
+    s3value = sensor3.read()
+    global s4value
+    s4value = sensor4.read()
+    global s5value
+    s5value = sensor5.read()
+
+    if s1value > max_line:
+        s1value = max_line
+    if s2value > max_line:
+        s2value = max_line
+    if s3value > max_line:
+        s3value = max_line
+    if s4value > max_line:
+        s4value = max_line
+    if s5value > max_line:
+        s5value = max_line
+
+    #total_line_value = (0*s1value + 1000*s2value + 2000*s3value + 3000*s4value + 4000*s5value) / (s1value+s2value+s3value+s4value+s5value+0.01)
+    
+    total_line_value = (1000*s2value + 2000*s3value + 3000*s4value) / (s2value+s3value+s4value+0.01)
+    
+    return total_line_value
+
+# line error
+def get_line_error(desired_line_value, total_line_value):
+    line_error = desired_line_value - total_line_value
+    return line_error
+
+# pid controller currently does NOT use delta_t - if weird errors, try adding that in first
+def pid_controller(error, prev_error, accu_error, kp, kd, ki):
+    P = kp * error                  # Proportional term; kp is the proportional gain
+    I = accu_error + ki * error     # Intergral term; ki is the integral gain
+    D = kd * (error - prev_error)   # Derivative term; kd is the derivative gain
+    
+    output = P + I + D              # controller output
+    
+    # store values for the next iteration
+    prev_error = error  # error value in the previous interation (to calculate the derivative term)
+    accu_error = I      # accumulated error value (to calculate the integral term)
+    
+    return output, prev_error, accu_error
+
+# remap values
+def scale_value(unscaled, from_min, from_max, to_min, to_max):
+    return (to_max-to_min)*(unscaled-from_min)/(from_max-from_min)+to_min
+
+sleep(3)
+
+while True:
+    usvalue = 10
+    #usvalue = us1.distance_cm() # check distance always
+    average_line = calculate_line_value()
+
+    # transitions
+    if states == "forwards":
+        if usvalue <= 1:            # transition
+            states = "obstacle"
+        elif s2value == max_line and s3value == max_line and s4value == max_line:
+        #elif s1value == max_line and s2value == max_line and s3value == max_line and s4value == max_line and s5value == max_line:
+            states = "backwards"
+
+    elif states == "backwards":
+        if s2value != max_line or s3value != max_line or s4value != max_line or s5value != max_line:
+        #if s1value != max_line or s2value != max_line or s3value != max_line or s4value != max_line or s5value != max_line:
+            states = "forwards"
+
+    elif states == "obstacle":
+        if usvalue > 1:             #transition
+            states = "forwards"
+    
+    #effects
+    
+    if states == "forwards":
+    
+        line_error = get_line_error(desired_line_value, average_line)
+        output, prev_error, accu_error = pid_controller(line_error, prev_error, accu_error, kp, kd, ki)
+        if output > 200:
+            output = 200
+        if output < -200:
+            output = -200
+    
+        speed_variable = scale_value(output, -200+accu_error, 200+accu_error, -40, 40)
+    
+        #line_error = get_line_error(desired_line_value, total_line_value)
+        #output, prev_error, accu_error = pid_controller(line_error, prev_error, accu_error, kp, kd, ki)
+    
+        #desired_angle = scale_value(line_error, -325, 325, -45, 45) 
+    
+        #print(s1value, s2value, s3value, s4value, s5value)
+        print(average_line, line_error, output, accu_error, speed_variable)
+        
+        motor_right.forward(40-speed_variable)
+        motor_left.forward(40+speed_variable)
+
+        print(s1value, s2value, s3value, s4value, s5value)
+
+    elif states == "backwards":
+        motor_right.backwards(30)
+        motor_left.backwards(30)
+
+    elif states == "obstacle":
+        motor_right.stop()
+        motor_left.stop()
+        M1.on()
+        magnet_state = "on"
+        print(f"the magnet is {magnet_state}")
+        sleep(3)
+        M1.off()
+        magnet_state = "off"
+
+    sleep(0.01)
+
+    """ print(f"robot is {states}")
+    print(f"the magnet is {magnet_state}")
+    print(f"Distance to Obstacle: {usvalue}cm") """
