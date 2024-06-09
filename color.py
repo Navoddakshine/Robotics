@@ -1,4 +1,5 @@
 from machine import Pin
+from machine import time_pulse_us
 import time
 
 class Color:
@@ -22,8 +23,10 @@ class Color:
         self.s1_pin.value(0)
 
     def pulse_in(self, pin, level, timeout_us=100000):
-        # Mocked function for the purpose of this example
-        return 0
+        pulse_width = time_pulse_us(pin, level, timeout_us)
+        if pulse_width < 0:
+            return 0
+        return pulse_width
 
     def average(self, samples):
         return sum(samples) / len(samples) if samples else 0
@@ -76,9 +79,9 @@ class Color:
                 'black_max': 200
             },
             'Blue': {
-                'red_min': 380, 'red_max': 580,
-                'green_min': 500, 'green_max': 700,
-                'blue_min': 300, 'blue_max': 350,
+                'red_min': 260, 'red_max': 300,
+                'green_min': 370, 'green_max': 450,
+                'blue_min': 250, 'blue_max': 390,
                 'black_max': 200
             },
             'Black': {
